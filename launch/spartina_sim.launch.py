@@ -1,7 +1,7 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
@@ -14,7 +14,6 @@ def generate_launch_description():
     x_pose = LaunchConfiguration('x_pose', default='-2.0')
     y_pose = LaunchConfiguration('y_pose', default='0.0')
 
-    # 우리 월드 경로 (turtlebot3_world 대신 우리 spartina_world)
     home = os.path.expanduser('~')
     world = os.path.join(home, 'drone_project', 'worlds', 'spartina_world.world')
 
@@ -48,9 +47,11 @@ def generate_launch_description():
         }.items()
     )
 
+    delayed_spawn = TimerAction(period=5.0, actions=[spawn_turtlebot_cmd])
+
     ld = LaunchDescription()
     ld.add_action(gzserver_cmd)
     ld.add_action(gzclient_cmd)
     ld.add_action(robot_state_publisher_cmd)
-    ld.add_action(spawn_turtlebot_cmd)
+    ld.add_action(delayed_spawn)
     return ld
