@@ -84,7 +84,7 @@ def generate_launch_description():
         executable='static_transform_publisher',
         name='static_tf_map_to_camera',
         arguments=[
-            '--x', '0.0', '--y', '0.0', '--z', '5.0',
+            '--x', '0.0', '--y', '0.0', '--z', '8.0',
             '--qx', '0.7071068', '--qy', '-0.7071068',
             '--qz', '0.0', '--qw', '0.0',
             '--frame-id', 'map',
