@@ -53,7 +53,7 @@ class GoalRelayNode(Node):
         self.declare_parameter("goal_frame", "map")
         self.declare_parameter("robot_frame", "base_link")
         self.declare_parameter("move_threshold", 0.15)   # [m]
-        self.declare_parameter("standoff", 0.5)           # [m]
+        self.declare_parameter("standoff", 0.8)           # [m] 기둥반경0.3+Nav2팽창0.55 고려
 
         self.goal_frame = self.get_parameter("goal_frame").value
         self.robot_frame = self.get_parameter("robot_frame").value

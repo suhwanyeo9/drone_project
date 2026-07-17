@@ -73,11 +73,19 @@
     </model>
 
     <!-- 목표 지점: 빨간 원기둥 (갯끈풀) — (5,0)→(2,0) 이동 -->
-    <!-- collision 없음(시각 전용) → 로봇이 도착해서 겹쳐도 충돌 안 함 -->
+    <!-- collision 추가 → 라이다가 실제 장애물로 인식, 로봇이 통과 못 하고 앞에서 멈춤 -->
     <model name="target_spartina">
       <static>true</static>
       <pose>2 0 0.5 0 0 0</pose>
       <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>1.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
         <visual name="visual">
           <geometry>
             <cylinder>
