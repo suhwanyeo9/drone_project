@@ -1,0 +1,245 @@
+<?xml version="1.0" ?>
+<!--
+  spartina_world_multi.world (Phase 4 다중 목표 버전)
+  기반: spartina_world_moving.world (드론 이동 버전)
+  변경점:
+    1. target_spartina_2 추가 — (-2, 2)
+    2. target_spartina_3 추가 — (0, -2)
+       ※ 배치 근거: 세 목표 간 최소 거리 2.83m.
+         merge_radius(0.5m) + 탐지 산포(~0.5m)를 감안해도
+         클러스터가 섞일 수 없는 간격.
+       ※ 장애물과의 최소 거리 2m 이상 — 시야 가림/충돌 없음.
+  담당: 여수환 · 스마트해운물류 x ICT 멘토링 (파트 3)
+-->
+<sdf version="1.6">
+  <world name="spartina_world">
+
+    <!-- 조명 (햇빛) -->
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+    <!-- 바닥 -->
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <!-- ═══════════════════════════════════════════════════════
+         드론 카메라: 원점 상공 8m, 똑바로 아래를 봄
+         2번 파트 obstacle_locator_node 의 입력 소스
+         ═══════════════════════════════════════════════════════ -->
+    <model name="drone_camera">
+      <!-- [이동버전] static=false + kinematic=true
+           static 모델은 SetEntityState 로 옮겨도 pose 가 갱신되지 않는 경우가 있다.
+           kinematic 은 중력/충돌력을 안 받으면서 SetWorldPose 로는 확실히 움직인다. -->
+      <static>false</static>
+      <pose>0 0 8 0 1.5708 0</pose>
+      <link name="camera_link">
+        <kinematic>true</kinematic>
+        <gravity>false</gravity>
+        <inertial>
+          <mass>0.1</mass>
+          <inertia><ixx>1e-4</ixx><iyy>1e-4</iyy><izz>1e-4</izz>
+                   <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+        <!-- 드론 위치를 눈으로 확인하기 위한 작은 파란 박스 -->
+        <visual name="visual">
+          <geometry>
+            <box><size>0.2 0.2 0.1</size></box>
+          </geometry>
+          <material>
+            <ambient>0.1 0.1 0.8 1</ambient>
+            <diffuse>0.1 0.1 0.9 1</diffuse>
+          </material>
+        </visual>
+        <sensor type="camera" name="drone_camera_sensor">
+          <update_rate>10</update_rate>
+          <always_on>true</always_on>
+          <camera>
+            <horizontal_fov>1.047</horizontal_fov>
+            <image>
+              <width>640</width>
+              <height>480</height>
+              <format>R8G8B8</format>
+            </image>
+            <clip>
+              <near>0.1</near>
+              <far>100</far>
+            </clip>
+          </camera>
+          <plugin name="drone_camera_controller" filename="libgazebo_ros_camera.so">
+            <camera_name>drone</camera_name>
+            <frame_name>drone_camera_optical</frame_name>
+          </plugin>
+        </sensor>
+      </link>
+    </model>
+
+    <!-- 목표 1: 빨간 원기둥 (갯끈풀) — 기존 위치 유지, 기존 검증과 비교용 -->
+    <model name="target_spartina">
+      <static>true</static>
+      <pose>2 0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>1.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>1.0</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.8 0.1 0.1 1</ambient>
+            <diffuse>0.9 0.1 0.1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- [Phase4 신규] 목표 2 -->
+    <model name="target_spartina_2">
+      <static>true</static>
+      <pose>-2 2 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>1.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>1.0</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.8 0.1 0.1 1</ambient>
+            <diffuse>0.9 0.1 0.1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- [Phase4 신규] 목표 3 -->
+    <model name="target_spartina_3">
+      <static>true</static>
+      <pose>0 -2 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>1.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>1.0</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.8 0.1 0.1 1</ambient>
+            <diffuse>0.9 0.1 0.1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 장애물 1 : 로봇(-2,0)→목표(2,0) 경로 한가운데. 회피 시연용 -->
+    <model name="obstacle_1">
+      <static>true</static>
+      <pose>0 0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.8 0.8 1.0</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>0.8 0.8 1.0</size></box>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.4 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 장애물 2 -->
+    <model name="obstacle_2">
+      <static>true</static>
+      <pose>3 -1.5 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.8 0.8 1.0</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>0.8 0.8 1.0</size></box>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.4 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 장애물 3 -->
+    <model name="obstacle_3">
+      <static>true</static>
+      <pose>3.5 1.5 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.8 0.8 1.0</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>0.8 0.8 1.0</size></box>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.4 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ═══════════════════════════════════════════════════════
+         gazebo_ros_state 플러그인
+         제공하는 것:
+           토픽   /gazebo/model_states       (모든 모델의 실시간 pose)
+                  → drone_tf_broadcaster.py 가 구독
+           서비스 /gazebo/set_entity_state   (모델을 원하는 pose 로 이동)
+                  → drone_survey_node.py 가 호출
+         ※ 이 플러그인이 없으면 위 토픽·서비스가 아예 안 생긴다.
+         ═══════════════════════════════════════════════════════ -->
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros>
+        <namespace>/gazebo</namespace>
+      </ros>
+      <update_rate>50.0</update_rate>
+    </plugin>
+
+  </world>
+</sdf>
