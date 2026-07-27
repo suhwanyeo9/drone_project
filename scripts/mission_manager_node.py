@@ -1,7 +1,9 @@
 """
-mission_manager_node.py — 다중 목표 순차 방문 관리 (Phase 4 Step 3)
-====================================================================
+mission_manager_node.py — 다중 목표 순차 방문 관리 (Phase 4 Step 3) v3
+=======================================================================
 target_manager 가 확정한 타겟들을 로봇이 가까운 순서대로 방문하게 한다.
+v2: 전 타겟 방문 후 출발 지점으로 복귀하는 RETURN 상태 추가.
+v3: 복귀 좌표를 파라미터로 직접 지정 가능 (use_home_pose + home_pose).
 
 [입력]
   /targets/confirmed (geometry_msgs/PoseArray, map 프레임)
@@ -10,31 +12,36 @@ target_manager 가 확정한 타겟들을 로봇이 가까운 순서대로 방�
 [출력]
   Nav2 의 NavigateToPose "액션" 으로 goal 전송.
   ┌ 왜 /goal_pose 토픽(기존 goal_relay 방식)이 아니라 액션인가:
-  │   토픽은 단방향이라 "도착했는지" 를 알 수 없다. 목표가 1개일 땐
-  │   상관없지만, 다중 목표 순회는 도착을 알아야 다음 goal 을 쏠 수
-  │   있다. 액션은 goal 전송 → 수락 → 결과(성공/실패/취소) 회신이
-  └   한 세트라 순차 방문의 상태 기계를 만들 수 있다.
+  │   토픽은 단방향이라 "도착했는지" 를 알 수 없다. 다중 목표 순회는
+  │   도착을 알아야 다음 goal 을 쏠 수 있다. 액션은 goal 전송 → 수락
+  └   → 결과(성공/실패) 회신이 한 세트라 순차 방문이 가능하다.
 
 [동작 — 상태 기계]
-  WAITING  : 확정 타겟이 min_targets(기본 3)개 모일 때까지 대기
+  WAITING  : 확정 타겟이 min_targets(기본 3)개 모일 때까지 대기.
+             이때 로봇의 현재 위치를 "홈" 으로 기록한다.
   SELECT   : 미방문 타겟 중 로봇 현재 위치에서 가장 가까운 것 선택 (greedy)
              ┌ greedy 로 충분한 근거: 타겟 수가 적어(3개) 최적 경로(TSP)
              └ 와의 차이가 미미하다. 대규모 확장 시 TSP 고려로 보고.
   NAVIGATE : NavigateToPose goal 전송, 결과 대기
-  → 성공   : 방문 처리 후 SELECT 로 (남은 타겟이 있으면)
-  → 실패   : 재시도 카운트 후 max_retries 초과 시 해당 타겟 포기(skip)
-  DONE     : 전부 방문(또는 포기) → 미션 완료 로그, 소요 시간 출력
+  → 성공   : 방문 처리 후 SELECT 로
+  → 실패   : 재시도 카운트, max_retries 초과 시 해당 타겟 포기(skip)
+  RETURN   : [v2 신규] 전 타겟 방문 후 홈으로 복귀 (return_home:=true 일 때)
+  DONE     : 미션 완료 로그, 소요 시간 출력
 
 [도착 판정]
-  Nav2 의 goal 성공 회신을 그대로 쓴다. 단, 타겟 좌표는 기둥 "중심" 이고
-  기둥에는 collision 이 있어 로봇이 중심까지 물리적으로 못 들어간다.
-  → goal 을 타겟 중심에서 approach_offset(기본 0.6m)만큼 로봇 쪽으로
-    당긴 지점으로 보낸다 (기둥 반지름 0.3m + 여유).
-    goal 자세(yaw)는 타겟을 바라보는 방향으로 설정.
+  Nav2 의 goal 성공 회신. 타겟 좌표는 기둥 "중심" 이고 기둥엔 collision 이
+  있어 로봇이 중심까지 못 들어가므로, goal 을 중심에서 approach_offset
+  (기본 0.6m = 기둥 반지름 0.3m + 여유)만큼 로봇 쪽으로 당긴 지점으로 보낸다.
+  goal 자세(yaw)는 타겟을 바라보는 방향. 홈 복귀 goal 은 홈 좌표 그대로.
 
 사용:
   python3 mission_manager_node.py --ros-args -p use_sim_time:=true
-  # 파라미터: -p min_targets:=3 -p approach_offset:=0.6 -p max_retries:=1
+  # 복귀 끄기: -p return_home:=false
+  # [v3] 복귀 좌표 직접 지정:
+  #   -p use_home_pose:=true -p home_pose:="[-3.0, -3.0]"
+  #   (미지정 시 기본: 미션 시작 순간의 로봇 위치로 자동 복귀)
+  #   ※ 기둥·장애물과 1m 이상 떨어진 빈 곳으로 지정할 것
+  # 기타: -p min_targets:=3 -p approach_offset:=0.6 -p max_retries:=1
 
 담당: 여수환 · 스마트해운물류 x ICT 멘토링 (파트 3) · Phase 4
 """
@@ -62,9 +69,12 @@ class MissionManagerNode(Node):
     def __init__(self):
         super().__init__("mission_manager_node")
 
-        self.declare_parameter("min_targets", 3)       # 미션 시작에 필요한 확정 타겟 수
+        self.declare_parameter("min_targets", 3)        # 미션 시작에 필요한 확정 타겟 수
         self.declare_parameter("approach_offset", 0.6)  # [m] 타겟 중심 앞 정지 거리
-        self.declare_parameter("max_retries", 1)       # 타겟당 재시도 횟수
+        self.declare_parameter("max_retries", 1)        # 타겟당 재시도 횟수
+        self.declare_parameter("return_home", True)     # [v2] 완료 후 복귀
+        self.declare_parameter("use_home_pose", False)  # [v3] true 면 home_pose 좌표 사용
+        self.declare_parameter("home_pose", [0.0, 0.0])  # [v3] 복귀 좌표 [x, y]
         self.declare_parameter("world_frame", "map")
         self.declare_parameter("robot_frame", "base_link")
 
@@ -72,6 +82,10 @@ class MissionManagerNode(Node):
         self.min_targets = int(g("min_targets"))
         self.approach_offset = float(g("approach_offset"))
         self.max_retries = int(g("max_retries"))
+        self.return_home = bool(g("return_home"))
+        self.use_home_pose = bool(g("use_home_pose"))
+        hp = g("home_pose")
+        self.home_pose_param = (float(hp[0]), float(hp[1]))
         self.world_frame = str(g("world_frame"))
         self.robot_frame = str(g("robot_frame"))
 
@@ -86,17 +100,20 @@ class MissionManagerNode(Node):
 
         # ── 미션 상태 ──
         self.targets = []          # [(x, y), ...] 확정 타겟 (미션 시작 시 고정)
-        self.visited = []          # [bool, ...]
-        self.retries = []          # [int, ...]
-        self.state = "WAITING"     # WAITING → NAVIGATE(반복) → DONE
+        self.visited = []
+        self.retries = []
+        self.state = "WAITING"     # WAITING → NAVIGATE(반복) → RETURN → DONE
         self.current_idx = None
+        self.home = None           # [v2] 미션 시작 시 로봇 위치
+        self.home_retries = 0
         self.mission_start = None
         self._goal_handle = None
 
         self.timer = self.create_timer(1.0, self.on_timer)
         self.get_logger().info(
             f"mission_manager 시작 | 시작 조건: 확정 타겟 {self.min_targets}개, "
-            f"접근 오프셋 {self.approach_offset}m, 재시도 {self.max_retries}회")
+            f"접근 오프셋 {self.approach_offset}m, 재시도 {self.max_retries}회, "
+            f"복귀 {'ON' if self.return_home else 'OFF'}")
 
     # ─────────────────────────────────────────────
     def _robot_xy(self):
@@ -110,9 +127,7 @@ class MissionManagerNode(Node):
 
     # ─────────────────────────────────────────────
     def on_targets(self, msg: PoseArray):
-        """확정 타겟 리스트 갱신. 미션 시작 전에만 반영한다.
-        (미션 중에는 목표가 바뀌지 않도록 스냅샷을 고정 —
-         방문 도중 리스트가 흔들리면 순회 논리가 꼬인다.)"""
+        """확정 타겟 리스트 갱신. 미션 시작 전에만 반영 (도중 변경 방지)."""
         if self.state != "WAITING":
             return
         self.targets = [(p.position.x, p.position.y) for p in msg.poses]
@@ -125,32 +140,61 @@ class MissionManagerNode(Node):
                 f"[WAITING] 확정 타겟 {n}/{self.min_targets} 대기 중",
                 throttle_duration_sec=5.0)
             if n >= self.min_targets:
+                # [v2] 미션 시작 순간의 로봇 위치를 홈으로 기록
+                robot = self._robot_xy()
+                if robot is None:
+                    self.get_logger().warn("로봇 TF 대기 중 — 홈 기록 후 시작 예정",
+                                           throttle_duration_sec=5.0)
+                    return
+                # [v3] 지정 좌표가 있으면 그것을, 없으면 시작 위치를 홈으로
+                self.home = self.home_pose_param if self.use_home_pose else robot
                 self.visited = [False] * len(self.targets)
                 self.retries = [0] * len(self.targets)
                 self.mission_start = self.get_clock().now()
                 tlist = ", ".join(f"({x:+.2f},{y:+.2f})" for x, y in self.targets)
                 self.get_logger().info(
-                    f"■ 미션 시작 — 타겟 {len(self.targets)}개 고정: {tlist}")
+                    f"■ 미션 시작 — 타겟 {len(self.targets)}개 고정: {tlist} | "
+                    f"홈 ({self.home[0]:+.2f},{self.home[1]:+.2f}) "
+                    f"[{'지정' if self.use_home_pose else '자동(시작위치)'}]")
                 self.state = "SELECT"
 
         elif self.state == "SELECT":
             self._select_and_go()
 
-        # NAVIGATE 중에는 액션 콜백이 상태를 넘겨주므로 타이머는 대기.
-        # DONE 이면 아무것도 안 함.
+        # NAVIGATE / RETURN 중에는 액션 콜백이 상태를 넘김. DONE 은 대기.
+
+    # ─────────────────────────────────────────────
+    def _make_goal(self, gx, gy, yaw):
+        goal = NavigateToPose.Goal()
+        goal.pose = PoseStamped()
+        goal.pose.header.frame_id = self.world_frame
+        goal.pose.header.stamp = self.get_clock().now().to_msg()
+        goal.pose.pose.position.x = gx
+        goal.pose.pose.position.y = gy
+        qx, qy, qz, qw = yaw_to_quat(yaw)
+        goal.pose.pose.orientation.x = qx
+        goal.pose.pose.orientation.y = qy
+        goal.pose.pose.orientation.z = qz
+        goal.pose.pose.orientation.w = qw
+        return goal
+
+    def _send_goal(self, goal, done_cb):
+        if not self.nav_client.wait_for_server(timeout_sec=2.0):
+            self.get_logger().warn("Nav2 액션 서버 없음 — 1초 후 재시도")
+            return False
+        send = self.nav_client.send_goal_async(goal)
+        send.add_done_callback(done_cb)
+        return True
 
     # ─────────────────────────────────────────────
     def _select_and_go(self):
-        # 남은 타겟?
         remaining = [i for i, v in enumerate(self.visited) if not v]
         if not remaining:
-            dt = (self.get_clock().now() - self.mission_start).nanoseconds * 1e-9
-            ok = sum(1 for i, v in enumerate(self.visited)
-                     if v and self.retries[i] <= self.max_retries)
-            self.get_logger().info(
-                f"■■ 미션 완료 — {len(self.targets)}개 중 방문 처리 {ok}개, "
-                f"소요 {dt:.1f}초")
-            self.state = "DONE"
+            # 전 타겟 방문 완료 → 복귀 또는 종료
+            if self.return_home and self.home is not None:
+                self._go_home()
+            else:
+                self._finish()
             return
 
         robot = self._robot_xy()
@@ -160,7 +204,7 @@ class MissionManagerNode(Node):
             return
         rx, ry = robot
 
-        # greedy: 가장 가까운 미방문 타겟
+        # greedy: 현재 위치에서 가장 가까운 미방문 타겟
         idx = min(remaining,
                   key=lambda i: math.hypot(self.targets[i][0] - rx,
                                            self.targets[i][1] - ry))
@@ -176,30 +220,43 @@ class MissionManagerNode(Node):
             gx, gy = tx, ty
         yaw = math.atan2(ty - gy, tx - gx)   # 타겟을 바라보는 방향
 
-        goal = NavigateToPose.Goal()
-        goal.pose = PoseStamped()
-        goal.pose.header.frame_id = self.world_frame
-        goal.pose.header.stamp = self.get_clock().now().to_msg()
-        goal.pose.pose.position.x = gx
-        goal.pose.pose.position.y = gy
-        qx, qy, qz, qw = yaw_to_quat(yaw)
-        goal.pose.pose.orientation.x = qx
-        goal.pose.pose.orientation.y = qy
-        goal.pose.pose.orientation.z = qz
-        goal.pose.pose.orientation.w = qw
-
-        if not self.nav_client.wait_for_server(timeout_sec=2.0):
-            self.get_logger().warn("Nav2 액션 서버 없음 — 1초 후 재시도")
-            return
-
         self.get_logger().info(
             f"▶ 타겟 #{idx + 1} ({tx:+.2f},{ty:+.2f}) 로 출발 — "
             f"goal ({gx:+.2f},{gy:+.2f}), 로봇에서 {d:.2f}m")
-        self.state = "NAVIGATE"
-        send = self.nav_client.send_goal_async(goal)
-        send.add_done_callback(self._on_goal_response)
+        if self._send_goal(self._make_goal(gx, gy, yaw), self._on_goal_response):
+            self.state = "NAVIGATE"
 
     # ─────────────────────────────────────────────
+    def _go_home(self):
+        """[v2] 홈으로 복귀."""
+        hx, hy = self.home
+        robot = self._robot_xy()
+        if robot is None:
+            self.get_logger().warn("로봇 TF 조회 실패 — 1초 후 재시도",
+                                   throttle_duration_sec=5.0)
+            return
+        rx, ry = robot
+        d = math.hypot(hx - rx, hy - ry)
+        yaw = math.atan2(hy - ry, hx - rx) if d > 1e-6 else 0.0
+
+        self.get_logger().info(
+            f"◀ 전 타겟 방문 완료 — 홈 ({hx:+.2f},{hy:+.2f}) 으로 복귀 ({d:.2f}m)")
+        if self._send_goal(self._make_goal(hx, hy, yaw), self._on_home_response):
+            self.state = "RETURN"
+
+    # ─────────────────────────────────────────────
+    def _finish(self):
+        dt = (self.get_clock().now() - self.mission_start).nanoseconds * 1e-9
+        ok = sum(1 for i, v in enumerate(self.visited)
+                 if v and self.retries[i] <= self.max_retries)
+        home_str = " + 홈 복귀" if (self.return_home and self.state == "RETURN") else ""
+        self.get_logger().info(
+            f"■■ 미션 완료 — {len(self.targets)}개 중 방문 처리 {ok}개{home_str}, "
+            f"소요 {dt:.1f}초")
+        self.state = "DONE"
+
+    # ─────────────────────────────────────────────
+    # 타겟 주행 콜백
     def _on_goal_response(self, future):
         handle = future.result()
         if not handle.accepted:
@@ -228,10 +285,37 @@ class MissionManagerNode(Node):
         idx = self.current_idx
         self.retries[idx] += 1
         if self.retries[idx] > self.max_retries:
-            self.visited[idx] = True   # 방문 처리(포기)로 표시해 순회에서 제외
+            self.visited[idx] = True   # 포기 처리 → 순회에서 제외
             self.get_logger().warn(
                 f"타겟 #{idx + 1} 재시도 초과 — 포기하고 다음 타겟으로")
         self.state = "SELECT"
+
+    # ─────────────────────────────────────────────
+    # 홈 복귀 콜백
+    def _on_home_response(self, future):
+        handle = future.result()
+        if not handle.accepted:
+            self.get_logger().warn("홈 복귀 goal 거부됨 — 재시도")
+            self._home_failure()
+            return
+        handle.get_result_async().add_done_callback(self._on_home_result)
+
+    def _on_home_result(self, future):
+        status = future.result().status
+        if status == 4:
+            self.get_logger().info("✔ 홈 도착")
+            self._finish()
+        else:
+            self.get_logger().warn(f"✘ 홈 복귀 실패 (status={status})")
+            self._home_failure()
+
+    def _home_failure(self):
+        self.home_retries += 1
+        if self.home_retries > self.max_retries:
+            self.get_logger().warn("홈 복귀 재시도 초과 — 현 위치에서 미션 종료")
+            self._finish()
+        else:
+            self.state = "SELECT"   # SELECT 가 remaining 없음을 보고 _go_home 재호출
 
 
 def main():
