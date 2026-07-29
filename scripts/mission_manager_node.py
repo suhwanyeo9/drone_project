@@ -1,9 +1,16 @@
 """
-mission_manager_node.py — 다중 목표 순차 방문 관리 (Phase 4 Step 3) v3
-=======================================================================
+🚗 [자동차 코드] mission_manager_node.py — 다중 목표 순차 방문 (Phase 4) v4
+===========================================================================
 target_manager 가 확정한 타겟들을 로봇이 가까운 순서대로 방문하게 한다.
 v2: 전 타겟 방문 후 출발 지점으로 복귀하는 RETURN 상태 추가.
 v3: 복귀 좌표를 파라미터로 직접 지정 가능 (use_home_pose + home_pose).
+v5: /mission/reset (std_msgs/Empty) 수신 시 미션 상태 초기화 → 다시 WAITING.
+    시뮬 재시작 없이 시나리오를 다시 돌릴 때 사용.
+v4: wait_survey_done(기본 true) — 🚁 드론 탐사가 "DONE" 을 발행할 때까지
+    미션 시작을 보류한다. /drone/survey_state 구독.
+    시작 조건이 "확정 타겟 N개" 에서 "탐사 완료 + 발견된 타겟 1개 이상" 으로
+    바뀐다 — 탐사가 끝나야 발견 목록이 최종본이 되기 때문.
+    (기존 방식이 필요하면 -p wait_survey_done:=false → min_targets 기준)
 
 [입력]
   /targets/confirmed (geometry_msgs/PoseArray, map 프레임)
@@ -51,6 +58,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from geometry_msgs.msg import PoseArray, PoseStamped
+from std_msgs.msg import String, Empty
 from nav2_msgs.action import NavigateToPose
 
 try:
@@ -73,6 +81,7 @@ class MissionManagerNode(Node):
         self.declare_parameter("approach_offset", 0.6)  # [m] 타겟 중심 앞 정지 거리
         self.declare_parameter("max_retries", 1)        # 타겟당 재시도 횟수
         self.declare_parameter("return_home", True)     # [v2] 완료 후 복귀
+        self.declare_parameter("wait_survey_done", True)  # [v4] 드론 탐사 완료 대기
         self.declare_parameter("use_home_pose", False)  # [v3] true 면 home_pose 좌표 사용
         self.declare_parameter("home_pose", [0.0, 0.0])  # [v3] 복귀 좌표 [x, y]
         self.declare_parameter("world_frame", "map")
@@ -83,6 +92,9 @@ class MissionManagerNode(Node):
         self.approach_offset = float(g("approach_offset"))
         self.max_retries = int(g("max_retries"))
         self.return_home = bool(g("return_home"))
+        self.wait_survey_done = bool(g("wait_survey_done"))
+        self.survey_done = False   # [v4] 🚁 드론 DONE 수신 여부
+        self._await_new_survey = False  # [v5] 리셋 후 새 탐사 시작 대기 플래그
         self.use_home_pose = bool(g("use_home_pose"))
         hp = g("home_pose")
         self.home_pose_param = (float(hp[0]), float(hp[1]))
@@ -96,6 +108,11 @@ class MissionManagerNode(Node):
 
         self.create_subscription(PoseArray, "/targets/confirmed",
                                  self.on_targets, 10)
+        # [v4] 🚁 드론 탐사 상태 구독 — "DONE" 이 오면 미션 시작 허용
+        self.create_subscription(String, "/drone/survey_state",
+                                 self.on_survey_state, 10)
+        # [v5] 리셋 구독 — 시뮬 재시작 없이 재실행용
+        self.create_subscription(Empty, "/mission/reset", self.on_reset, 10)
         self.nav_client = ActionClient(self, NavigateToPose, "navigate_to_pose")
 
         # ── 미션 상태 ──
@@ -113,7 +130,8 @@ class MissionManagerNode(Node):
         self.get_logger().info(
             f"mission_manager 시작 | 시작 조건: 확정 타겟 {self.min_targets}개, "
             f"접근 오프셋 {self.approach_offset}m, 재시도 {self.max_retries}회, "
-            f"복귀 {'ON' if self.return_home else 'OFF'}")
+            f"복귀 {'ON' if self.return_home else 'OFF'}, "
+            f"탐사 완료 대기 {'ON' if self.wait_survey_done else 'OFF'}")
 
     # ─────────────────────────────────────────────
     def _robot_xy(self):
@@ -126,6 +144,43 @@ class MissionManagerNode(Node):
             return None
 
     # ─────────────────────────────────────────────
+    def on_survey_state(self, msg: String):
+        """[v4] 🚁 드론 탐사 상태. DONE 최초 수신 시 미션 시작을 허용한다.
+        [v5] 리셋 직후에는 이전 탐사의 잔여 DONE 이 남아 있을 수 있으므로,
+             DONE 이 아닌 상태(새 탐사의 MOVING 등)를 한 번 본 뒤의
+             DONE 만 새 탐사 완료로 인정한다."""
+        if self._await_new_survey:
+            if msg.data != "DONE":
+                self._await_new_survey = False   # 새 탐사가 시작됐다
+            return
+        if msg.data == "DONE" and not self.survey_done:
+            self.survey_done = True
+            self.get_logger().info("🚁 드론 탐사 완료 수신 — 로봇 미션 시작 준비")
+
+    # ─────────────────────────────────────────────
+    def on_reset(self, msg: Empty):
+        """[v5] 미션 상태 초기화 — 다시 WAITING 부터.
+        run_scenario.sh 가 ros2 param set 으로 갱신한 복귀 좌표를
+        여기서 다시 읽는다 (시작 시 캐시한 값 갱신)."""
+        g = lambda n: self.get_parameter(n).value
+        self.use_home_pose = bool(g("use_home_pose"))
+        hp = g("home_pose")
+        self.home_pose_param = (float(hp[0]), float(hp[1]))
+        self.targets = []
+        self.visited = []
+        self.retries = []
+        self.current_idx = None
+        self.home = None
+        self.home_retries = 0
+        self.survey_done = False
+        self._await_new_survey = True   # 이전 탐사의 잔여 DONE 무시
+        self.state = "WAITING"
+        self.get_logger().info(
+            f"◇ 미션 리셋 — 새 탐사 완료 대기 | 복귀 좌표 "
+            f"({self.home_pose_param[0]:+.2f}, {self.home_pose_param[1]:+.2f})"
+            f" [{'지정' if self.use_home_pose else '자동'}]")
+
+    # ─────────────────────────────────────────────
     def on_targets(self, msg: PoseArray):
         """확정 타겟 리스트 갱신. 미션 시작 전에만 반영 (도중 변경 방지)."""
         if self.state != "WAITING":
@@ -136,10 +191,26 @@ class MissionManagerNode(Node):
     def on_timer(self):
         if self.state == "WAITING":
             n = len(self.targets)
-            self.get_logger().info(
-                f"[WAITING] 확정 타겟 {n}/{self.min_targets} 대기 중",
-                throttle_duration_sec=5.0)
-            if n >= self.min_targets:
+            # [v4] 시작 조건 분기
+            if self.wait_survey_done:
+                if not self.survey_done:
+                    self.get_logger().info(
+                        f"[WAITING] 🚁 드론 탐사 진행 중 — 현재 확정 타겟 {n}개",
+                        throttle_duration_sec=5.0)
+                    return
+                if n < 1:
+                    self.get_logger().warn(
+                        "[WAITING] 탐사는 끝났으나 확정 타겟 0개 — 대기 "
+                        "(탐사 범위에 목표가 없었을 수 있음)",
+                        throttle_duration_sec=10.0)
+                    return
+                ready = True
+            else:
+                self.get_logger().info(
+                    f"[WAITING] 확정 타겟 {n}/{self.min_targets} 대기 중",
+                    throttle_duration_sec=5.0)
+                ready = (n >= self.min_targets)
+            if ready:
                 # [v2] 미션 시작 순간의 로봇 위치를 홈으로 기록
                 robot = self._robot_xy()
                 if robot is None:
