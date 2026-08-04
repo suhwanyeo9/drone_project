@@ -1,0 +1,223 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="arena01">
+    <include><uri>model://sun</uri></include>
+    <include><uri>model://ground_plane</uri></include>
+
+    <physics type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+
+    <scene>
+      <ambient>0.6 0.6 0.6 1</ambient>
+      <shadows>false</shadows>
+    </scene>
+
+    <model name="wall_north">
+      <static>true</static>
+      <pose>0.0000 3.0500 0.5000 0 0 0</pose>
+      <link name="link">
+        <collision name="c">
+          <geometry><box><size>6.3000 0.1000 1.0000</size></box></geometry>
+        </collision>
+        <visual name="v">
+          <geometry><box><size>6.3000 0.1000 1.0000</size></box></geometry>
+          <material>
+            <ambient>0.7 0.7 0.7 1</ambient>
+            <diffuse>0.7 0.7 0.7 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="wall_south">
+      <static>true</static>
+      <pose>0.0000 -3.0500 0.5000 0 0 0</pose>
+      <link name="link">
+        <collision name="c">
+          <geometry><box><size>6.3000 0.1000 1.0000</size></box></geometry>
+        </collision>
+        <visual name="v">
+          <geometry><box><size>6.3000 0.1000 1.0000</size></box></geometry>
+          <material>
+            <ambient>0.7 0.7 0.7 1</ambient>
+            <diffuse>0.7 0.7 0.7 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="wall_east">
+      <static>true</static>
+      <pose>3.1000 0.0000 0.5000 0 0 0</pose>
+      <link name="link">
+        <collision name="c">
+          <geometry><box><size>0.1000 6.0000 1.0000</size></box></geometry>
+        </collision>
+        <visual name="v">
+          <geometry><box><size>0.1000 6.0000 1.0000</size></box></geometry>
+          <material>
+            <ambient>0.7 0.7 0.7 1</ambient>
+            <diffuse>0.7 0.7 0.7 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="wall_west">
+      <static>true</static>
+      <pose>-3.1000 0.0000 0.5000 0 0 0</pose>
+      <link name="link">
+        <collision name="c">
+          <geometry><box><size>0.1000 6.0000 1.0000</size></box></geometry>
+        </collision>
+        <visual name="v">
+          <geometry><box><size>0.1000 6.0000 1.0000</size></box></geometry>
+          <material>
+            <ambient>0.7 0.7 0.7 1</ambient>
+            <diffuse>0.7 0.7 0.7 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="obstacle_1">
+      <static>true</static>
+      <pose>-1.1600 1.6200 0.2500 0 0 0</pose>
+      <link name="link">
+        <collision name="c">
+          <geometry><box><size>0.6000 0.6000 0.5000</size></box></geometry>
+        </collision>
+        <visual name="v">
+          <geometry><box><size>0.6000 0.6000 0.5000</size></box></geometry>
+          <material>
+            <ambient>0.4 0.45 0.6 1</ambient>
+            <diffuse>0.4 0.45 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="obstacle_2">
+      <static>true</static>
+      <pose>1.1800 1.5400 0.2500 0 0 0</pose>
+      <link name="link">
+        <collision name="c">
+          <geometry><box><size>0.8000 0.7000 0.5000</size></box></geometry>
+        </collision>
+        <visual name="v">
+          <geometry><box><size>0.8000 0.7000 0.5000</size></box></geometry>
+          <material>
+            <ambient>0.4 0.45 0.6 1</ambient>
+            <diffuse>0.4 0.45 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="obstacle_3">
+      <static>true</static>
+      <pose>-1.3000 -0.8000 0.2500 0 0 0</pose>
+      <link name="link">
+        <collision name="c">
+          <geometry><box><size>0.7000 0.8000 0.5000</size></box></geometry>
+        </collision>
+        <visual name="v">
+          <geometry><box><size>0.7000 0.8000 0.5000</size></box></geometry>
+          <material>
+            <ambient>0.4 0.45 0.6 1</ambient>
+            <diffuse>0.4 0.45 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="obstacle_4">
+      <static>true</static>
+      <pose>1.2000 -1.4600 0.2500 0 0 0</pose>
+      <link name="link">
+        <collision name="c">
+          <geometry><box><size>0.5000 0.7000 0.5000</size></box></geometry>
+        </collision>
+        <visual name="v">
+          <geometry><box><size>0.5000 0.7000 0.5000</size></box></geometry>
+          <material>
+            <ambient>0.4 0.45 0.6 1</ambient>
+            <diffuse>0.4 0.45 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="target_spartina">
+      <static>true</static>
+      <pose>-0.7500 0.2000 0.5000 0 0 0</pose>
+      <link name="link">
+        <collision name="c">
+          <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
+        </collision>
+        <visual name="v">
+          <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
+          <material>
+            <ambient>0.15 0.6 0.2 1</ambient>
+            <diffuse>0.15 0.6 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="target_spartina_2">
+      <static>true</static>
+      <pose>2.2500 2.0500 0.5000 0 0 0</pose>
+      <link name="link">
+        <collision name="c">
+          <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
+        </collision>
+        <visual name="v">
+          <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
+          <material>
+            <ambient>0.15 0.6 0.2 1</ambient>
+            <diffuse>0.15 0.6 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="target_spartina_3">
+      <static>true</static>
+      <pose>1.8500 -2.0500 0.5000 0 0 0</pose>
+      <link name="link">
+        <collision name="c">
+          <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
+        </collision>
+        <visual name="v">
+          <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
+          <material>
+            <ambient>0.15 0.6 0.2 1</ambient>
+            <diffuse>0.15 0.6 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="drone_camera">
+      <static>true</static>
+      <pose>0 0 8 0 1.5708 0</pose>
+      <link name="camera_link">
+        <visual name="visual">
+          <geometry><box><size>0.2 0.2 0.1</size></box></geometry>
+          <material>
+            <ambient>0.1 0.1 0.8 1</ambient>
+            <diffuse>0.1 0.1 0.9 1</diffuse>
+          </material>
+        </visual>
+        <sensor type="camera" name="drone_camera_sensor">
+          <update_rate>10</update_rate>
+          <always_on>true</always_on>
+          <camera>
+            <horizontal_fov>1.047</horizontal_fov>
+            <image><width>640</width><height>480</height><format>R8G8B8</format></image>
+            <clip><near>0.1</near><far>100</far></clip>
+          </camera>
+          <plugin name="drone_camera_controller" filename="libgazebo_ros_camera.so">
+            <camera_name>drone</camera_name>
+            <frame_name>drone_camera_optical</frame_name>
+          </plugin>
+        </sensor>
+      </link>
+    </model>
+
+  </world>
+</sdf>
