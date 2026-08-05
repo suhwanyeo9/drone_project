@@ -153,8 +153,8 @@
         <visual name="v">
           <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
           <material>
-            <ambient>0.15 0.6 0.2 1</ambient>
-            <diffuse>0.15 0.6 0.2 1</diffuse>
+            <ambient>0.8 0.1 0.1 1</ambient>
+            <diffuse>0.8 0.1 0.1 1</diffuse>
           </material>
         </visual>
       </link>
@@ -169,8 +169,8 @@
         <visual name="v">
           <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
           <material>
-            <ambient>0.15 0.6 0.2 1</ambient>
-            <diffuse>0.15 0.6 0.2 1</diffuse>
+            <ambient>0.8 0.1 0.1 1</ambient>
+            <diffuse>0.8 0.1 0.1 1</diffuse>
           </material>
         </visual>
       </link>
@@ -185,8 +185,8 @@
         <visual name="v">
           <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
           <material>
-            <ambient>0.15 0.6 0.2 1</ambient>
-            <diffuse>0.15 0.6 0.2 1</diffuse>
+            <ambient>0.8 0.1 0.1 1</ambient>
+            <diffuse>0.8 0.1 0.1 1</diffuse>
           </material>
         </visual>
       </link>

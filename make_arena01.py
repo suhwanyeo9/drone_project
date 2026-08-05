@@ -158,7 +158,7 @@ def cyl(name, x, y, r, h, rgba):
 def build_world(cam_block):
     GREY = '0.7 0.7 0.7 1'
     BLUE = '0.4 0.45 0.6 1'
-    GREEN = '0.15 0.6 0.2 1'
+    GREEN = '0.8 0.1 0.1 1'
     parts = []
 
     # 벽 4장 (모서리까지 덮도록 상하벽을 좌우로 늘림)
