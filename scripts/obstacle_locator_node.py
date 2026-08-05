@@ -68,7 +68,11 @@ except ImportError:
 # 2주차 pixel_to_ground.py 와 동일한 수식 (자립 실행을 위해 내장)
 # 필요하면 `from pixel_to_ground import pixel_to_ground` 로 교체해도 된다.
 # ─────────────────────────────────────────────────────────────
-def pixel_to_ground(u, v, K, R, C):
+# 서 있는 물체의 초록 픽셀 무게중심이 놓이는 높이 / 물체 전체 높이.
+# 원통형 기둥(높이 1.0m) 실측 결과 약 2/3. 형상이 바뀌면 재측정 필요.
+HEIGHT_RATIO = 2.0 / 3.0
+
+def pixel_to_ground(u, v, K, R, C, plane_z=0.0):
     K = np.asarray(K, dtype=float)
     R = np.asarray(R, dtype=float)
     C = np.asarray(C, dtype=float)
@@ -83,8 +87,9 @@ def pixel_to_ground(u, v, K, R, C):
             "카메라 자세 R 또는 광학 프레임 축 방향을 확인하세요."
         )
 
-    t = -C[2] / d_world[2]              # 지면(z=0) 교차 비율
+    t = (plane_z - C[2]) / d_world[2]              # 지면(z=0) 교차 비율
     P = C + t * d_world                 # 지면 위 실제 좌표
+    P = np.array([P[0], P[1], 0.0])
 
     dx, dy = P[0] - C[0], P[1] - C[1]
     distance = np.sqrt(dx ** 2 + dy ** 2)
@@ -140,6 +145,10 @@ class ObstacleLocatorNode(Node):
         self.declare_parameter("robot_frame", "robot/base_link")
         self.declare_parameter("world_frame", "world")
         self.declare_parameter("rate_hz", 2.0)
+        # 검출 대상의 실제 높이 [m]. 0이면 지면(z=0) 평면에 투영 = 기존 동작.
+        #   0보다 크면 z = height * HEIGHT_RATIO 평면에 투영한다.
+        #   서 있는 물체는 무게중심이 지면보다 위라 그냥 투영하면 바깥쪽으로 밀린다.
+        self.declare_parameter("target_height", 0.0)
         # [Week5/Phase3] 탐지 픽셀에 실린 영상 시각으로 TF를 조회할지 여부.
         #   true  (기본) : 영상이 촬영된 시각의 드론 pose 로 투영  ← 올바른 동작
         #   false        : '지금'의 최신 TF 로 투영  ← Phase3 이전의 동작
@@ -242,7 +251,10 @@ class ObstacleLocatorNode(Node):
         R_cam, C_cam = cam
 
         try:
-            distance, bearing, P = pixel_to_ground(u, v, self.K, R_cam, C_cam)
+            distance, bearing, P = pixel_to_ground(
+                u, v, self.K, R_cam, C_cam,
+                plane_z=self.get_parameter("target_height").value * HEIGHT_RATIO,
+            )
         except ValueError as e:
             self.get_logger().warn(f"투영 실패: {e}")
             self.pending = None
