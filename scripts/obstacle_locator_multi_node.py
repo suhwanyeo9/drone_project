@@ -119,7 +119,10 @@ class ObstacleLocatorMultiNode(_BaseNode):
 
         R_cam, C_cam = cam
         try:
-            distance, bearing, P = base.pixel_to_ground(u, v, self.K, R_cam, C_cam)
+            distance, bearing, P = base.pixel_to_ground(
+                u, v, self.K, R_cam, C_cam,
+                plane_z=self.get_parameter("target_height").value * base.HEIGHT_RATIO,
+            )
         except ValueError as e:
             # 기하학적으로 투영 불가(광선이 지면과 안 만남 등) — 재시도 무의미, 폐기
             self.get_logger().warn(f"투영 실패(폐기): {e}", throttle_duration_sec=2.0)
