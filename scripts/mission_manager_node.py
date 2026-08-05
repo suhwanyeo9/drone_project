@@ -60,6 +60,8 @@ from rclpy.action import ActionClient
 from geometry_msgs.msg import PoseArray, PoseStamped
 from std_msgs.msg import String, Empty
 from nav2_msgs.action import NavigateToPose
+from nav_msgs.msg import OccupancyGrid
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 
 try:
     from tf2_ros import Buffer, TransformListener
@@ -113,6 +115,15 @@ class MissionManagerNode(Node):
                                  self.on_survey_state, 10)
         # [v5] 리셋 구독 — 시뮬 재시작 없이 재실행용
         self.create_subscription(Empty, "/mission/reset", self.on_reset, 10)
+        # [우회] 전역 costmap 을 구독해 접근점이 실제로 비어 있는지 확인
+        self.costmap = None
+        self.declare_parameter("max_goal_cost", 40)
+        self.max_goal_cost = int(self.get_parameter("max_goal_cost").value)
+        self.create_subscription(
+            OccupancyGrid, "/global_costmap/costmap", self._on_costmap,
+            QoSProfile(depth=1,
+                       reliability=QoSReliabilityPolicy.RELIABLE,
+                       durability=QoSDurabilityPolicy.TRANSIENT_LOCAL))
         self.nav_client = ActionClient(self, NavigateToPose, "navigate_to_pose")
 
         # ── 미션 상태 ──
@@ -282,9 +293,12 @@ class MissionManagerNode(Node):
         tx, ty = self.targets[idx]
         self.current_idx = idx
 
-        # 접근 지점: 타겟 중심에서 로봇 방향으로 offset 만큼 당김
+        # 접근 지점: 타겟 주위에서 costmap 상 비어 있는 곳을 고른다
         d = math.hypot(tx - rx, ty - ry)
-        if d > 1e-6:
+        picked = self._pick_approach(tx, ty, rx, ry) if d > 1e-6 else None
+        if picked is not None:
+            gx, gy = picked
+        elif d > 1e-6:
             gx = tx - (tx - rx) / d * self.approach_offset
             gy = ty - (ty - ry) / d * self.approach_offset
         else:
@@ -298,6 +312,48 @@ class MissionManagerNode(Node):
             self.state = "NAVIGATE"
 
     # ─────────────────────────────────────────────
+    def _on_costmap(self, msg):
+        self.costmap = msg
+
+    def _cost_at(self, x, y):
+        """map 좌표의 costmap 값. 범위 밖이거나 미수신이면 None."""
+        cm = self.costmap
+        if cm is None:
+            return None
+        res = cm.info.resolution
+        col = int((x - cm.info.origin.position.x) / res)
+        row = int((y - cm.info.origin.position.y) / res)
+        if not (0 <= col < cm.info.width and 0 <= row < cm.info.height):
+            return None
+        return cm.data[row * cm.info.width + col]
+
+    def _pick_approach(self, tx, ty, rx, ry):
+        """타겟 주위를 둘러 비어 있는 접근점 중 로봇에서 가장 가까운 곳."""
+        if self.costmap is None:
+            return None
+        base = math.atan2(ry - ty, rx - tx)
+        for extra in (0.0, 0.25, 0.50):
+            r = self.approach_offset + extra
+            best = None
+            for k in range(24):
+                step = ((k + 1) // 2) * (math.pi / 12.0)
+                ang = base + (step if k % 2 == 0 else -step)
+                gx = tx + r * math.cos(ang)
+                gy = ty + r * math.sin(ang)
+                c = self._cost_at(gx, gy)
+                if c is None or c < 0 or c > self.max_goal_cost:
+                    continue
+                dd = math.hypot(gx - rx, gy - ry)
+                if best is None or dd < best[0]:
+                    best = (dd, gx, gy)
+            if best is not None:
+                self.get_logger().info(
+                    f"  접근점 탐색: 반경 {r:.2f}m 에서 확보 "
+                    f"({best[1]:+.2f},{best[2]:+.2f})")
+                return best[1], best[2]
+        self.get_logger().warn("  접근점 탐색 실패 — 직선 방식으로 대체")
+        return None
+
     def _go_home(self):
         """[v2] 홈으로 복귀."""
         hx, hy = self.home
