@@ -335,22 +335,29 @@ class MissionManagerNode(Node):
         for extra in (0.0, 0.25, 0.50):
             r = self.approach_offset + extra
             best = None
+            unknown = None
             for k in range(24):
                 step = ((k + 1) // 2) * (math.pi / 12.0)
                 ang = base + (step if k % 2 == 0 else -step)
                 gx = tx + r * math.cos(ang)
                 gy = ty + r * math.sin(ang)
                 c = self._cost_at(gx, gy)
-                if c is None or c < 0 or c > self.max_goal_cost:
+                if c is None:
                     continue
                 dd = math.hypot(gx - rx, gy - ry)
-                if best is None or dd < best[0]:
-                    best = (dd, gx, gy)
-            if best is not None:
+                if 0 <= c <= self.max_goal_cost:
+                    if best is None or dd < best[0]:
+                        best = (dd, gx, gy)
+                elif c < 0:
+                    # 미탐색 = 아직 안 본 곳. 막힌 것이 아니므로 차선책으로 둔다
+                    if unknown is None or dd < unknown[0]:
+                        unknown = (dd, gx, gy)
+            pick, kind = (best, "탐색됨") if best else (unknown, "미탐색")
+            if pick is not None:
                 self.get_logger().info(
-                    f"  접근점 탐색: 반경 {r:.2f}m 에서 확보 "
-                    f"({best[1]:+.2f},{best[2]:+.2f})")
-                return best[1], best[2]
+                    f"  접근점 탐색: 반경 {r:.2f}m {kind} "
+                    f"({pick[1]:+.2f},{pick[2]:+.2f})")
+                return pick[1], pick[2]
         self.get_logger().warn("  접근점 탐색 실패 — 직선 방식으로 대체")
         return None
 
