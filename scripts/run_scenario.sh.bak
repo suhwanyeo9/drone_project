@@ -47,14 +47,14 @@ echo "════════════════════════�
 
 # 1) 이전 시나리오 정리 ─────────────────────────
 pkill -f drone_survey_once_node 2>/dev/null && sleep 1
-echo "[2/4] 🚗 복귀 좌표 갱신 → ($HOME_X, $HOME_Y)"
-ros2 param set /mission_manager_node home_pose "[$HOME_X, $HOME_Y]" > /dev/null
-ros2 param set /mission_manager_node use_home_pose true > /dev/null
-
-# 2) 🚗 자동차 복귀 좌표 런타임 갱신 ─────────────
 echo "[1/4] 리셋 신호 전송 (미션·타겟 초기화)"
 ros2 topic pub --once /mission/reset std_msgs/msg/Empty "{}" > /dev/null
 ros2 topic pub --once /targets/reset std_msgs/msg/Empty "{}" > /dev/null
+
+# 2) 🚗 자동차 복귀 좌표 런타임 갱신 ─────────────
+echo "[2/4] 🚗 복귀 좌표 갱신 → ($HOME_X, $HOME_Y)"
+ros2 param set /mission_manager_node home_pose "[$HOME_X, $HOME_Y]" > /dev/null
+ros2 param set /mission_manager_node use_home_pose true > /dev/null
 
 # 3) 드론 이륙 지점 복귀 ────────────────────────
 echo "[3/4] 🚁 드론을 이륙 지점 (0, 0, 8) 로 복귀"
