@@ -145,13 +145,13 @@
     </model>
     <model name="target_spartina">
       <static>true</static>
-      <pose>-0.7500 0.2000 0.5000 0 0 0</pose>
+      <pose>-2.3000 2.3000 0.5000 0 0 0</pose>
       <link name="link">
         <collision name="c">
-          <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.150</radius><length>1.000</length></cylinder></geometry>
         </collision>
         <visual name="v">
-          <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.150</radius><length>1.000</length></cylinder></geometry>
           <material>
             <ambient>0.8 0.1 0.1 1</ambient>
             <diffuse>0.8 0.1 0.1 1</diffuse>
@@ -161,13 +161,13 @@
     </model>
     <model name="target_spartina_2">
       <static>true</static>
-      <pose>2.2500 2.0500 0.5000 0 0 0</pose>
+      <pose>2.3000 2.3000 0.5000 0 0 0</pose>
       <link name="link">
         <collision name="c">
-          <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.150</radius><length>1.000</length></cylinder></geometry>
         </collision>
         <visual name="v">
-          <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.150</radius><length>1.000</length></cylinder></geometry>
           <material>
             <ambient>0.8 0.1 0.1 1</ambient>
             <diffuse>0.8 0.1 0.1 1</diffuse>
@@ -177,13 +177,13 @@
     </model>
     <model name="target_spartina_3">
       <static>true</static>
-      <pose>1.8500 -2.0500 0.5000 0 0 0</pose>
+      <pose>-2.3000 -2.3000 0.5000 0 0 0</pose>
       <link name="link">
         <collision name="c">
-          <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.150</radius><length>1.000</length></cylinder></geometry>
         </collision>
         <visual name="v">
-          <geometry><cylinder><radius>0.300</radius><length>1.000</length></cylinder></geometry>
+          <geometry><cylinder><radius>0.150</radius><length>1.000</length></cylinder></geometry>
           <material>
             <ambient>0.8 0.1 0.1 1</ambient>
             <diffuse>0.8 0.1 0.1 1</diffuse>

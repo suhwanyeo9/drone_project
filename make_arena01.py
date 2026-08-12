@@ -38,11 +38,11 @@ OBSTACLES = [
 
 # 갯끈풀 목표 기둥: (이름, x, y) - 확대 후 좌표계 기준 (m)
 TARGETS = [
-    ('target_spartina',   -0.75,  0.20),
-    ('target_spartina_2',  2.25,  2.05),
-    ('target_spartina_3',  1.85, -2.05),
+    ('target_spartina',   -2.30,  2.30),
+    ('target_spartina_2',  2.30,  2.30),
+    ('target_spartina_3', -2.30, -2.30),
 ]
-TARGET_R = 0.30
+TARGET_R = 0.15
 TARGET_H = 1.00
 TARGET_IN_MAP = False   # True면 목표 기둥도 Nav2 지도에 장애물로 표시
 

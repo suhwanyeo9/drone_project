@@ -99,7 +99,7 @@ def launch_setup(context):
                        '--ros-args',
                        '-p', 'use_sim_time:=true',
                        '-p', 'wait_survey_done:=true',
-                       '-p', 'approach_offset:=0.5',   # [v4] 🚁 탐사 완료 후 출발
+                       '-p', 'approach_offset:=0.9',   # [v4] 🚁 탐사 완료 후 출발
                        '-p', 'use_home_pose:=true',
                        '-p', f'home_pose:=[{home_x}, {home_y}]'],
             output='screen'),
